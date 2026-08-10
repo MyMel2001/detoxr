@@ -167,6 +167,18 @@ The page should:
 9. Have a hit counter (use <img> with a fake counter number)
 10. Include at least one table-based layout section
 
+== AVAILABLE COFFEE EXTENSIONS ==
+The following live API backends ("coffee extensions") are available to make the page interactive.
+If the page you are recreating would naturally have forms (search, login, payment, contact, etc.),
+wire those forms to the matching extension's domain so they become live:
+
+{coffee_extensions}
+
+To wire a form to a coffee extension, set the form's action attribute to the extension's domain
+(e.g. action="service-name.goldenyears.yay") and include the input fields the service would need.
+The system will automatically route the submission to that extension and apply its live results.
+Only include forms that make sense for this page; do not force a form where none belongs.
+
 == OUTPUT ==
 Respond with ONLY the raw HTML content. No markdown, no code fences, no explanations.
 The HTML must start with <html> and end with </html>.
@@ -515,6 +527,53 @@ def _extract_page_title(url):
     return f"Welcome to {hostname}"
 
 
+def rewire_ai_generated_forms(html_content, page_url):
+    """Rewire forms in an AI-recreated page that point at coffee extension domains.
+
+    The AI is told to set a form's action to a coffee extension's domain
+    (e.g. action="bluesky.goldenyears.yay"). This function rewrites those forms
+    to POST back to the page URL with the hidden fields the system uses to route
+    the submission to the matching extension.
+
+    Returns the modified HTML string.
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        rewired = 0
+
+        for form in soup.find_all('form'):
+            action = form.get('action', '')
+            if not action:
+                continue
+
+            # Normalize the action to a bare hostname for matching
+            action_host = action
+            if '://' in action_host:
+                action_host = action_host.split('://', 1)[1]
+            action_host = action_host.split('/')[0].split(':')[0]
+
+            if action_host in coffee_extensions_registry:
+                domain = action_host
+                form['action'] = page_url
+                form['method'] = 'post'
+                ext_hidden = soup.new_tag('input', attrs={'type': 'hidden', 'name': '_coffee_ext', 'value': domain})
+                form.append(ext_hidden)
+                act_hidden = soup.new_tag('input', attrs={'type': 'hidden', 'name': '_coffee_action', 'value': 'default'})
+                form.append(act_hidden)
+                orig_hidden = soup.new_tag('input', attrs={'type': 'hidden', 'name': '_coffee_original_action', 'value': action})
+                form.append(orig_hidden)
+                rewired += 1
+                print(f'[Golden Years] Rewired AI-generated form: {action} -> {domain}')
+
+        if rewired:
+            print(f'[Golden Years] Rewired {rewired} AI-generated form(s) to coffee extensions')
+            return str(soup)
+        return html_content
+    except Exception as e:
+        print(f'[Golden Years] Error rewiring AI-generated forms: {str(e)}')
+        return html_content
+
+
 def ai_recreate_page(url, year):
     """Use AI to recreate what a missing page would have looked like in July {year}.
     
@@ -537,13 +596,17 @@ def ai_recreate_page(url, year):
     
     # Extract a page title from the URL
     page_title = _extract_page_title(url)
-    
+
+    # Describe the available coffee extensions so the AI can wire forms to them
+    coffee_extensions_desc = get_extension_descriptions() or "No coffee extensions are currently available."
+
     # Render the prompt template
     prompt_template = Template(AI_PAGE_RECREATION_PROMPT)
     system_prompt = prompt_template.render(
         url=url,
         year=year,
-        page_title=page_title
+        page_title=page_title,
+        coffee_extensions=coffee_extensions_desc
     )
     
     try:
@@ -572,7 +635,11 @@ def ai_recreate_page(url, year):
             html_content = f'<html><head><title>{page_title}</title></head><body>{html_content}</body></html>'
         if not html_content.endswith('</html>'):
             html_content += '</html>'
-        
+
+        # Rewire any forms the AI pointed at coffee extension domains so they
+        # become live, interactive backends instead of dead links.
+        html_content = rewire_ai_generated_forms(html_content, url)
+
         # Cache it
         set_cached_page(url, date_str, html_content)
         

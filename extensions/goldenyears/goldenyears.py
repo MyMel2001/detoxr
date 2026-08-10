@@ -553,7 +553,7 @@ def ai_recreate_page(url, year):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a time-machine web revival engine. You recreate period-authentic 1998-era web pages. Respond ONLY with raw HTML, no markdown, no code fences."
+                    "content": f"You are a time-machine web revival engine. You recreate period-authentic {year}-era web pages. Respond ONLY with raw HTML, no markdown, no code fences."
                 },
                 {"role": "user", "content": system_prompt}
             ],

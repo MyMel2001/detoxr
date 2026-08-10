@@ -25,3 +25,4 @@ extensions/youtube
 **/extensions/yeahyoutube/subscriptions.json
 **/extensions/yeahyoutube/cookies.txt
 extensions/github/repo_cache/*
+extensions/goldenyears/coffee_extensions/ai_page_cache.json

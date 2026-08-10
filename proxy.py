@@ -142,9 +142,15 @@ def handle_matching_extension(matching_extension):
 	print(f"Handling request with matching extension: {matching_extension.__name__}")
 	response = matching_extension.handle_request(request)
 	
-	if hasattr(matching_extension, 'get_override_status') and matching_extension.get_override_status():
-		override_extension = matching_extension.__name__
-		print(f"Override enabled for {override_extension}")
+	if hasattr(matching_extension, 'get_override_status'):
+		if matching_extension.get_override_status():
+			override_extension = matching_extension.__name__
+			print(f"Override enabled for {override_extension}")
+		elif override_extension == matching_extension.__name__:
+			# The extension was just disabled (e.g. via its own control page).
+			# Clear the global override so it no longer intercepts other domains.
+			override_extension = None
+			print(f"Override disabled for {matching_extension.__name__}")
 	
 	return response
 

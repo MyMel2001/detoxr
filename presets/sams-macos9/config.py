@@ -42,9 +42,13 @@ WHITELISTED_DOMAINS = [
 	"newnet.lol",
 	"samantha.ai",
 	"samantha.web",
-	"goldenyears.yay"
+	"goldenyears.yay",
+    "github.com",
+    "bruv.nodemixaholic.com",
+	"linkawho.github.io",
+	"settings.config"
 ]
-ZIP_CODE = 75602
+ZIP_CODE = 75762
 ENABLED_EXTENSIONS = [
 	"waybackmachine",
 	"reddit",

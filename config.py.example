@@ -36,6 +36,7 @@
 
 # Uncomment lines to enable desired extensions:
 ENABLED_EXTENSIONS = [
+	#"bitwarden",
 	#"chatgpt",
 	#"claude",
 	#"gemini",

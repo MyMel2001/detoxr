@@ -3,12 +3,15 @@ from openai import OpenAI
 import config
 
 # Initialize the OpenAI client with no restrictive timeout limits
-client = OpenAI(base_url="http://100.118.11.83:11434/v1", api_key="x")
+client = OpenAI(
+	base_url=config.SAMANTHA_API_BASE_URL,
+	api_key=config.SAMANTHA_API_KEY
+)
 
 DOMAIN = "samantha.ai"
 
 messages = []
-selected_model = "sparksammy/samantha-combo-3-small:latest"
+selected_model = config.SAMANTHA_MODEL
 previous_model = selected_model
 
 system_prompts = [
@@ -41,7 +44,7 @@ HTML_TOP = """<!DOCTYPE html>
 <body>
 	<form method="post" action="/">
 		<select id="model" name="model">
-			<option value="sparksammy/samantha-combo-3-small:latest" {% if selected_model == 'sparksammy/samantha-combo-3-small:latest' %}selected{% endif %}>Combo 3 Small</option>
+			<option value="{{ samantha_model }}" {% if selected_model == samantha_model %}selected{% endif %}>Samantha</option>
 		</select>
 		<input type="text" size="63" name="command" required autocomplete="off">
 		<input type="submit" value="Submit">
@@ -73,7 +76,7 @@ def handle_get(request):
 		elif msg['role'] == 'system':
 			output += f"<b>Samantha:</b> {msg['content']}<br>"
 	
-	full_page = render_template_string(HTML_TOP, selected_model=selected_model) + output + HTML_BOTTOM
+	full_page = render_template_string(HTML_TOP, selected_model=selected_model, samantha_model=config.SAMANTHA_MODEL) + output + HTML_BOTTOM
 	return full_page, 200
 
 def generate_stream(request):
@@ -91,7 +94,7 @@ def generate_stream(request):
 	messages_to_send = system_prompts + messages[-10:]
 
 	# 1. Immediately send the top half of the HTML layout to IE5 to reset its timeout clock
-	yield render_template_string(HTML_TOP, selected_model=selected_model)
+	yield render_template_string(HTML_TOP, selected_model=selected_model, samantha_model=config.SAMANTHA_MODEL)
 
 	# 2. Render previous chat histories first
 	history_output = ""

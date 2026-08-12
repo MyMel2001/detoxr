@@ -15,6 +15,12 @@ SETTING_KEYS = [
     "BLUESKY_PDS_URL",
     "ZIP_CODE",
     "GITHUB_USERS",
+    "SAMANTHA_API_BASE_URL",
+    "SAMANTHA_API_KEY",
+    "SAMANTHA_MODEL",
+    "SAMANTHA_WEBSIM_API_BASE_URL",
+    "SAMANTHA_WEBSIM_API_KEY",
+    "SAMANTHA_WEBSIM_MODEL",
 ]
 
 
@@ -60,6 +66,18 @@ def apply_settings_to_config(settings):
         config.ZIP_CODE = settings["ZIP_CODE"]
     if settings.get("GITHUB_USERS"):
         config.GITHUB_USERS = _deserialize_github_users(settings["GITHUB_USERS"])
+    if settings.get("SAMANTHA_API_BASE_URL"):
+        config.SAMANTHA_API_BASE_URL = settings["SAMANTHA_API_BASE_URL"]
+    if settings.get("SAMANTHA_API_KEY"):
+        config.SAMANTHA_API_KEY = settings["SAMANTHA_API_KEY"]
+    if settings.get("SAMANTHA_MODEL"):
+        config.SAMANTHA_MODEL = settings["SAMANTHA_MODEL"]
+    if settings.get("SAMANTHA_WEBSIM_API_BASE_URL"):
+        config.SAMANTHA_WEBSIM_API_BASE_URL = settings["SAMANTHA_WEBSIM_API_BASE_URL"]
+    if settings.get("SAMANTHA_WEBSIM_API_KEY"):
+        config.SAMANTHA_WEBSIM_API_KEY = settings["SAMANTHA_WEBSIM_API_KEY"]
+    if settings.get("SAMANTHA_WEBSIM_MODEL"):
+        config.SAMANTHA_WEBSIM_MODEL = settings["SAMANTHA_WEBSIM_MODEL"]
 
 
 def apply_cookie_settings():
@@ -111,6 +129,24 @@ SETTINGS_TEMPLATE = """
 		<input type="text" name="github_users" value="{{ github_users }}" size="50"><br>
 		<small>Comma-separated GitHub usernames<br>
 		whose repos will appear on github.com</small></p>
+		<p><strong>Samantha API Base URL:</strong><br>
+		<input type="text" name="samantha_api_base_url" value="{{ samantha_api_base_url }}" size="40"><br>
+		<small>OpenAI-compatible endpoint for Samantha</small></p>
+		<p><strong>Samantha API Key:</strong><br>
+		<input type="password" name="samantha_api_key" value="{{ samantha_api_key }}" size="40"><br>
+		<small>Your Samantha API key</small></p>
+		<p><strong>Samantha Model:</strong><br>
+		<input type="text" name="samantha_model" value="{{ samantha_model }}" size="40"><br>
+		<small>Model name for Samantha</small></p>
+		<p><strong>Samantha WebSimulator API Base URL:</strong><br>
+		<input type="text" name="samantha_websim_api_base_url" value="{{ samantha_websim_api_base_url }}" size="40"><br>
+		<small>OpenAI-compatible endpoint for Samantha WebSimulator</small></p>
+		<p><strong>Samantha WebSimulator API Key:</strong><br>
+		<input type="password" name="samantha_websim_api_key" value="{{ samantha_websim_api_key }}" size="40"><br>
+		<small>Your Samantha WebSimulator API key</small></p>
+		<p><strong>Samantha WebSimulator Model:</strong><br>
+		<input type="text" name="samantha_websim_model" value="{{ samantha_websim_model }}" size="40"><br>
+		<small>Model name for Samantha WebSimulator</small></p>
 		<hr>
 		<center>
 			<input type="submit" name="action" value="Save Settings">
@@ -145,6 +181,12 @@ def handle_request(req):
                 "BLUESKY_PDS_URL": req.form.get('pds_url', '').strip(),
                 "ZIP_CODE": req.form.get('zip_code', '').strip(),
                 "GITHUB_USERS": req.form.get('github_users', '').strip(),
+                "SAMANTHA_API_BASE_URL": req.form.get('samantha_api_base_url', '').strip(),
+                "SAMANTHA_API_KEY": req.form.get('samantha_api_key', '').strip(),
+                "SAMANTHA_MODEL": req.form.get('samantha_model', '').strip(),
+                "SAMANTHA_WEBSIM_API_BASE_URL": req.form.get('samantha_websim_api_base_url', '').strip(),
+                "SAMANTHA_WEBSIM_API_KEY": req.form.get('samantha_websim_api_key', '').strip(),
+                "SAMANTHA_WEBSIM_MODEL": req.form.get('samantha_websim_model', '').strip(),
             }
             cookie_value = build_cookie_value(new_settings)
             resp = make_response(redirect("http://settings.config/"))
@@ -167,6 +209,12 @@ def handle_request(req):
     bluesky_app_password = settings.get("BLUESKY_APP_PASSWORD", getattr(config, 'BLUESKY_APP_PASSWORD', ''))
     zip_code = settings.get("ZIP_CODE", str(getattr(config, 'ZIP_CODE', '')))
     github_users = settings.get("GITHUB_USERS", _serialize_github_users(getattr(config, 'GITHUB_USERS', [])))
+    samantha_api_base_url = settings.get("SAMANTHA_API_BASE_URL", getattr(config, 'SAMANTHA_API_BASE_URL', ''))
+    samantha_api_key = settings.get("SAMANTHA_API_KEY", getattr(config, 'SAMANTHA_API_KEY', ''))
+    samantha_model = settings.get("SAMANTHA_MODEL", getattr(config, 'SAMANTHA_MODEL', ''))
+    samantha_websim_api_base_url = settings.get("SAMANTHA_WEBSIM_API_BASE_URL", getattr(config, 'SAMANTHA_WEBSIM_API_BASE_URL', ''))
+    samantha_websim_api_key = settings.get("SAMANTHA_WEBSIM_API_KEY", getattr(config, 'SAMANTHA_WEBSIM_API_KEY', ''))
+    samantha_websim_model = settings.get("SAMANTHA_WEBSIM_MODEL", getattr(config, 'SAMANTHA_WEBSIM_MODEL', ''))
 
     from flask import render_template_string
     return render_template_string(
@@ -176,5 +224,11 @@ def handle_request(req):
         bluesky_app_password=bluesky_app_password,
         zip_code=zip_code,
         github_users=github_users,
+        samantha_api_base_url=samantha_api_base_url,
+        samantha_api_key=samantha_api_key,
+        samantha_model=samantha_model,
+        samantha_websim_api_base_url=samantha_websim_api_base_url,
+        samantha_websim_api_key=samantha_websim_api_key,
+        samantha_websim_model=samantha_websim_model,
         message=message
     )

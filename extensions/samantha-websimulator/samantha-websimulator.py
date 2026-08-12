@@ -7,7 +7,10 @@ import importlib.util
 import os
 from urllib.parse import urlparse, parse_qs
 
-client = OpenAI(base_url="http://100.118.11.83:11434/v1", api_key="x")
+client = OpenAI(
+	base_url=config.SAMANTHA_WEBSIM_API_BASE_URL,
+	api_key=config.SAMANTHA_WEBSIM_API_KEY
+)
 
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -192,7 +195,7 @@ def simulate_web_request_stream(req):
 	try:
 		# Send the messages to OpenAI with stream=True
 		response = client.chat.completions.create(
-			model="sparksammy/samantha-combo-3-small:latest",
+			model=config.SAMANTHA_WEBSIM_MODEL,
 			messages=all_messages,
 			stream=True
 		)

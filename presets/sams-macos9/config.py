@@ -1,8 +1,20 @@
 # Project: Golden Years - OpenAI-compatible endpoint configuration
 # Point this at any OpenAI-compatible API (OpenAI, Ollama, vLLM, etc.)
-GOLDEN_YEARS_API_BASE_URL = "http://100.118.11.83:11434/v1"
+GOLDEN_YEARS_API_BASE_URL = "http://localhost:11434/v1"
 GOLDEN_YEARS_API_KEY = "x"
 GOLDEN_YEARS_MODEL = "gemma4:12b"
+
+# Samantha (samantha.ai) - LLM chat endpoint configuration
+# Point this at any OpenAI-compatible API (OpenAI, Ollama, vLLM, etc.)
+SAMANTHA_API_BASE_URL = "http://localhost:11434/v1"
+SAMANTHA_API_KEY = "x"
+SAMANTHA_MODEL = "sparksammy/samantha-combo-3-small:latest"
+
+# Samantha WebSimulator (samantha.web) - endpoint configuration
+# Point this at any OpenAI-compatible API (OpenAI, Ollama, vLLM, etc.)
+SAMANTHA_WEBSIM_API_BASE_URL = "http://localhost:11434/v1"
+SAMANTHA_WEBSIM_API_KEY = "x"
+SAMANTHA_WEBSIM_MODEL = "sparksammy/samantha-combo-3-small:latest"
 
 # Coffee Extensions - Bluesky Social (maps Twitter/X forms to Bluesky API)
 BLUESKY_HANDLE = "nodemixaholic.com"

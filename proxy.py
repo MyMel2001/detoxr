@@ -3,6 +3,7 @@ import argparse
 import os
 import shutil
 import socket
+from html import escape
 from urllib.parse import urlparse
 
 # Third-party imports
@@ -63,6 +64,45 @@ if "publicmode" in ENABLED_EXTENSIONS:
 @app.route("/cached_image/<path:filename>")
 def serve_cached_image(filename):
 	return send_from_directory(CACHE_DIR, filename, mimetype='image/gif')
+
+@app.route("/web", methods=["GET", "POST"])
+def web_frontend():
+	url = request.values.get("url", "").strip()
+	if not url:
+		return Response("""<!doctype html>
+<html>
+<head><title>Macproxy Web</title></head>
+<body>
+<h1>Macproxy Web</h1>
+<form method="get" action="/web">
+<p><input type="text" name="url" size="60" value="http://"></p>
+<p><input type="submit" value="Browse"></p>
+</form>
+</body>
+</html>""", mimetype="text/html")
+
+	if "://" not in url:
+		url = "http://" + url
+
+	headers = prepare_headers()
+	try:
+		if request.method == "POST":
+			data = request.form.to_dict(flat=False)
+			data.pop("url", None)
+			resp = session.post(url, data=data, headers=headers, allow_redirects=True)
+		else:
+			params = request.args.to_dict(flat=False)
+			params.pop("url", None)
+			resp = session.get(url, params=params, headers=headers, allow_redirects=True)
+		return process_response(
+			(resp.content, resp.status_code, dict(resp.headers)),
+			resp.url,
+			frontend_base_url=f"http://{app.config['MACPROXY_HOST_AND_PORT']}/web"
+		)
+	except requests.exceptions.ConnectionError as e:
+		return abort(502, f"DNS lookup or connection failed for {escape(url)}: {escape(str(e))}")
+	except Exception as e:
+		return abort(500, ERROR_HEADER + escape(str(e)))
 
 def handle_image_request(url):
 	# Pass config values to fetch_and_cache_image
@@ -154,7 +194,7 @@ def handle_matching_extension(matching_extension):
 	
 	return response
 
-def process_response(response, url):
+def process_response(response, url, frontend_base_url=None):
 	print(f"Processing response for URL: {url}")
 
 	if isinstance(response, tuple):
@@ -249,7 +289,8 @@ def process_response(response, url):
 			tags_to_strip=config.TAGS_TO_STRIP,
 			attributes_to_strip=config.ATTRIBUTES_TO_STRIP,
 			convert_characters=config.CONVERT_CHARACTERS,
-			conversion_table=config.CONVERSION_TABLE
+			conversion_table=config.CONVERSION_TABLE,
+			frontend_base_url=frontend_base_url
 		)
 	else:
 		print(f"Content type {content_type} should not be transcoded, passing through unchanged")

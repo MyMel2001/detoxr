@@ -3,6 +3,7 @@ import copy
 import hashlib
 import html
 import re
+from urllib.parse import quote, urljoin
 
 # Third-party imports
 from bs4 import BeautifulSoup
@@ -62,9 +63,10 @@ def transcode_content(content):
 	
 	return content.encode('utf-8')
 
-def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False, 
+def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False,
 				  tags_to_unwrap=None, tags_to_strip=None, attributes_to_strip=None,
-				  convert_characters=False, conversion_table=None):
+				  convert_characters=False, conversion_table=None,
+				  frontend_base_url=None):
 	"""
 	Uses BeautifulSoup to transcode payloads of the text/html content type
 	"""
@@ -86,6 +88,19 @@ def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False
 	# Contents of <pre> tags should always use HTML entities
 	for tag in soup.find_all(['pre']):
 		tag.replace_with(str(tag))
+
+	if frontend_base_url and url:
+		for tag in soup(['a', 'area', 'link', 'iframe', 'img', 'script']):
+			for attr in ['href', 'src']:
+				if attr in tag.attrs:
+					target = tag[attr]
+					if not target.startswith(('#', 'mailto:', 'tel:', 'data:', 'javascript:')):
+						tag[attr] = f"{frontend_base_url}?url={quote(urljoin(url, target), safe='')}"
+		for tag in soup.find_all('form'):
+			action = tag.get('action', url)
+			tag['action'] = frontend_base_url
+			hidden = soup.new_tag('input', attrs={'type': 'hidden', 'name': 'url', 'value': urljoin(url, action)})
+			tag.insert(0, hidden)
 
 	# Always convert HTTPS to HTTP regardless of whitelist status
 	for tag in soup(['link', 'script', 'img', 'a', 'iframe']):
@@ -205,3 +220,18 @@ def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False
 	html_bytes = html.encode('utf-8')
 
 	return html_bytes
+
+if __name__ == "__main__":
+	out = transcode_html(
+		'<a href="/next">next</a><form action="/post"><input name="q"></form>',
+		url="http://example.com/start",
+		whitelisted_domains=[],
+		tags_to_unwrap=[],
+		tags_to_strip=[],
+		attributes_to_strip=[],
+		conversion_table={},
+		frontend_base_url="http://proxy.local/web"
+	).decode("utf-8")
+	assert 'href="http://proxy.local/web?url=http%3A%2F%2Fexample.com%2Fnext"' in out
+	assert 'action="http://proxy.local/web"' in out
+	assert 'name="url"' in out and 'value="http://example.com/post"' in out

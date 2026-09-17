@@ -5,6 +5,7 @@ import shutil
 import socket
 from html import escape
 from urllib.parse import urlparse
+from requests.adapters import HTTPAdapter
 
 # Third-party imports
 import requests
@@ -21,6 +22,8 @@ from utils.system_utils import load_preset
 os.environ['FLASK_ENV'] = 'development'
 app = Flask(__name__)
 session = requests.Session()
+session.mount("http://", HTTPAdapter(pool_connections=10, pool_maxsize=10, pool_block=True))
+session.mount("https://", HTTPAdapter(pool_connections=10, pool_maxsize=10, pool_block=True))
 
 HTTP_ERRORS = (403, 404, 500, 503, 504)
 ERROR_HEADER = "[[Macproxy Encountered an Error]]"
@@ -84,21 +87,46 @@ def web_frontend():
 	if "://" not in url:
 		url = "http://" + url
 
+	parsed_target = urlparse(url)
+	host = parsed_target.netloc.split(':')[0]
+
+	if is_self_request(url):
+		if not find_matching_extension(host):
+			return abort(400, f"Web frontend cannot fetch itself: {escape(url)}")
+
+	matching_extension = find_matching_extension(host)
+	if matching_extension:
+		response = handle_matching_extension(matching_extension, RequestUrlProxy(request, url))
+		return process_response(
+			response,
+			url,
+			frontend_base_url=f"http://{app.config['MACPROXY_HOST_AND_PORT']}/web"
+		)
+
+	override_response = handle_override_extension(parsed_target.scheme, RequestUrlProxy(request, url))
+	if override_response is not None:
+		return process_response(
+			override_response,
+			url,
+			frontend_base_url=f"http://{app.config['MACPROXY_HOST_AND_PORT']}/web"
+		)
+
 	headers = prepare_headers()
 	try:
 		if request.method == "POST":
 			data = request.form.to_dict(flat=False)
 			data.pop("url", None)
-			resp = session.post(url, data=data, headers=headers, allow_redirects=True)
+			resp = session.post(url, data=data, headers=headers, allow_redirects=True, timeout=30)
 		else:
 			params = request.args.to_dict(flat=False)
 			params.pop("url", None)
-			resp = session.get(url, params=params, headers=headers, allow_redirects=True)
-		return process_response(
-			(resp.content, resp.status_code, dict(resp.headers)),
-			resp.url,
-			frontend_base_url=f"http://{app.config['MACPROXY_HOST_AND_PORT']}/web"
-		)
+			resp = session.get(url, params=params, headers=headers, allow_redirects=True, timeout=30)
+		with resp:
+			return process_response(
+				(resp.content, resp.status_code, dict(resp.headers)),
+				resp.url,
+				frontend_base_url=f"http://{app.config['MACPROXY_HOST_AND_PORT']}/web"
+			)
 	except requests.exceptions.ConnectionError as e:
 		return abort(502, f"DNS lookup or connection failed for {escape(url)}: {escape(str(e))}")
 	except Exception as e:
@@ -149,13 +177,13 @@ def handle_request(path):
 
 	return handle_default_request()
 
-def handle_override_extension(scheme):
+def handle_override_extension(scheme, req=request):
 	global override_extension
 	if override_extension:
 		extension_name = override_extension.split('.')[-1]
 		if extension_name in extensions:
 			if scheme in ['http', 'https', 'ftp']:
-				response = extensions[extension_name].handle_request(request)
+				response = extensions[extension_name].handle_request(req)
 				check_override_status(extension_name)
 				return response
 			else:
@@ -172,15 +200,33 @@ def check_override_status(extension_name):
 		print("Override disabled")
 
 def find_matching_extension(host):
+	host = (host or "").lower()
 	for domain, extension in domain_to_extension.items():
-		if host.endswith(domain):
+		dom = domain.lower()
+		if host == dom or host.endswith("." + dom):
 			return extension
 	return None
 
-def handle_matching_extension(matching_extension):
+
+def is_self_request(url):
+	target = urlparse(url)
+	target_netloc = target.netloc.lower()
+	self_hosts = {request.host.lower(), str(app.config.get('MACPROXY_HOST_AND_PORT', '')).lower()}
+	return target_netloc in self_hosts
+
+class RequestUrlProxy:
+	def __init__(self, req, url):
+		self._req = req
+		self.url = url
+
+	def __getattr__(self, name):
+		return getattr(self._req, name)
+
+
+def handle_matching_extension(matching_extension, req=request):
 	global override_extension
 	print(f"Handling request with matching extension: {matching_extension.__name__}")
-	response = matching_extension.handle_request(request)
+	response = matching_extension.handle_request(req)
 	
 	if hasattr(matching_extension, 'get_override_status'):
 		if matching_extension.get_override_status():
@@ -339,9 +385,9 @@ def prepare_headers():
 def send_request(url, headers):
 	print(f"Sending request to: {url}")
 	if request.method == "POST":
-		return session.post(url, data=request.form, headers=headers, allow_redirects=True)
+		return session.post(url, data=request.form, headers=headers, allow_redirects=True, timeout=30)
 	else:
-		return session.get(url, params=request.args, headers=headers)
+		return session.get(url, params=request.args, headers=headers, timeout=30)
 
 @app.after_request
 def apply_caching(resp):

@@ -90,7 +90,7 @@ def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False
 		tag.replace_with(str(tag))
 
 	if frontend_base_url and url:
-		for tag in soup(['a', 'area', 'link', 'iframe', 'img', 'script']):
+		for tag in soup(['a', 'area', 'link', 'iframe', 'img', 'input', 'script']):
 			for attr in ['href', 'src']:
 				if attr in tag.attrs:
 					target = tag[attr]
@@ -136,9 +136,16 @@ def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False
 				if attr in tag.attrs:
 					del tag[attr]
 
-	# Always handle meta refresh tags
+	# Keep extension redirects inside Web frontend. Without this, NewNet actions
+	# redirect to a proxy-relative URL and leave its extension routing context.
 	for tag in soup.find_all('meta', attrs={'http-equiv': 'refresh'}):
-		if 'content' in tag.attrs and 'https://' in tag['content']:
+		if 'content' not in tag.attrs:
+			continue
+		if frontend_base_url and url:
+			match = re.match(r'^(\s*\d+(?:\.\d+)?\s*;\s*url\s*=\s*)(.*)$', tag['content'], re.IGNORECASE)
+			if match:
+				tag['content'] = f"{match.group(1)}{frontend_base_url}?url={quote(urljoin(url, match.group(2).strip()), safe='')}"
+		elif 'https://' in tag['content']:
 			tag['content'] = tag['content'].replace('https://', 'http://')
 
 	# Always handle CSS with inline URLs
@@ -223,7 +230,7 @@ def transcode_html(html, url=None, whitelisted_domains=None, simplify_html=False
 
 if __name__ == "__main__":
 	out = transcode_html(
-		'<a href="/next">next</a><form action="/post"><input name="q"></form>',
+		'<a href="/next">next</a><input type="image" src="/frame.jpg"><meta http-equiv="refresh" content="0;url=/done"><form action="/post"><input name="q"></form>',
 		url="http://example.com/start",
 		whitelisted_domains=[],
 		tags_to_unwrap=[],
@@ -233,5 +240,7 @@ if __name__ == "__main__":
 		frontend_base_url="http://proxy.local/web"
 	).decode("utf-8")
 	assert 'href="http://proxy.local/web?url=http%3A%2F%2Fexample.com%2Fnext"' in out
+	assert 'src="http://proxy.local/web?url=http%3A%2F%2Fexample.com%2Fframe.jpg"' in out
+	assert 'content="0;url=http://proxy.local/web?url=http%3A%2F%2Fexample.com%2Fdone"' in out
 	assert 'action="http://proxy.local/web"' in out
 	assert 'name="url"' in out and 'value="http://example.com/post"' in out

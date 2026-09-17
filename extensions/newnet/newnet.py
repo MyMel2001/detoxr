@@ -255,7 +255,8 @@ def handle_request(req):
 	parsed_url = urlparse(req.url)
 	path = parsed_url.path
 	query_params = parse_qs(parsed_url.query)
-	is_gateway = (req.host == "newnet.lol" or "newnet.lol" in path)
+	target_host = parsed_url.netloc.split(':')[0].lower()
+	is_gateway = (target_host == DOMAIN or req.host == DOMAIN or DOMAIN in path)
 
 	if STREAMING_ENABLED and not is_gateway:
 		if req.url != CURRENT_URL and path not in ["/newnet-frame.jpg", "/newnet-audio.mp3", "/newnet-navigate", "/newnet-viewport-click", "/newnet-send-keystrokes"]:
@@ -311,7 +312,8 @@ def handle_request(req):
 		return Response(pure_audio_generator(), mimetype="audio/mpeg")
 
 	if path == "/newnet-navigate" and req.method == "POST":
-		new_dest = request.form.get("nav_url")
+		form_data = getattr(req, "form", None) or request.form
+		new_dest = form_data.get("nav_url")
 		if new_dest:
 			if not new_dest.startswith("http"): new_dest = "https://" + new_dest
 			CURRENT_URL = new_dest
@@ -354,8 +356,10 @@ def handle_request(req):
 		return '<html><head><meta http-equiv="refresh" content="0;url=/newnet-render"></head><body>Scrolling...</body></html>', 200
 
 	if path == "/newnet-send-keystrokes" and req.method == "POST":
-		x, y = int(request.form.get("x", 0)), int(request.form.get("y", 0))
-		if typed_text := request.form.get("typed_text", ""):
+		form_data = getattr(req, "form", None) or request.form
+		x = int(form_data.get("x", 0))
+		y = int(form_data.get("y", 0))
+		if typed_text := form_data.get("typed_text", ""):
 			sync_interact(x, y, keystrokes=typed_text)
 		return '<html><head><meta http-equiv="refresh" content="0;url=/newnet-render"></head><body>Typing...</body></html>', 200
 
